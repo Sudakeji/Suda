@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Studio 项目生成器 | Project Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .language-switch {
+            display: flex;
+            gap: 10px;
+        }
+
+        .lang-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .lang-btn.active {
+            background: white;
+            color: #667eea;
+            border-color: white;
+        }
+
+        .lang-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 2px;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-item:hover {
+            background: #e9ecef;
+            border-color: #667eea;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            user-select: none;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-generate {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-generate:active {
+            transform: translateY(0);
+        }
+
+        .btn-reset {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .btn-reset:hover {
+            background: #dee2e6;
+        }
+
+        .output {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .output pre {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .success-message {
+            padding: 15px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1 id="title">Nova Studio 项目生成器</h1>
+                <p id="subtitle">根据规划自动生成项目结构</p>
+            </div>
+            <div class="language-switch">
+                <button class="lang-btn active" onclick="switchLanguage('zh')">中文</button>
+                <button class="lang-btn" onclick="switchLanguage('en')">English</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Phase 1 Section -->
+            <div class="section">
+                <div class="section-title" id="phase1-title">Phase 1：核心架构升级</div>
+                <div class="checkbox-group" id="phase1-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="monaco" checked>
+                        <label for="monaco" id="label-monaco">Monaco Editor 配置</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ui" checked>
+                        <label for="ui" id="label-ui">简洁 IDE UI</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="base-html" checked>
+                        <label for="base-html" id="label-base-html">基础 HTML 文件</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="terminal" checked>
+                        <label for="terminal" id="label-terminal">Terminal 区域</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 2A Section -->
+            <div class="section">
+                <div class="section-title" id="phase2a-title">Phase 2A：AI 核心模块</div>
+                <div class="checkbox-group" id="phase2a-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ai-provider" checked>
+                        <label for="ai-provider" id="label-ai-provider">AI Provider 架构</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="openai">
+                        <label for="openai" id="label-openai">OpenAI 接口</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="deepseek">
+                        <label for="deepseek" id="label-deepseek">DeepSeek 接口</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="settings">
+                        <label for="settings" id="label-settings">API 设置中心</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 2B Section -->
+            <div class="section">
+                <div class="section-title" id="phase2b-title">Phase 2B：工作区系统</div>
+                <div class="checkbox-group" id="phase2b-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="filesystem" checked>
+                        <label for="filesystem" id="label-filesystem">文件系统</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="indexeddb" checked>
+                        <label for="indexeddb" id="label-indexeddb">IndexedDB 存储</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="multi-tab" checked>
+                        <label for="multi-tab" id="label-multi-tab">多文件 Tab</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="project-mgmt">
+                        <label for="project-mgmt" id="label-project-mgmt">项目管理</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn-generate" onclick="generateProject()" id="btn-generate">生成项目结构</button>
+                <button class="btn-reset" onclick="resetForm()" id="btn-reset">重置</button>
+            </div>
+
+            <!-- Output -->
+            <div class="output" id="output" style="display: none;">
+                <pre id="output-text"></pre>
+            </div>
+
+            <!-- Success Message -->
+            <div class="success-message" id="successMsg">
+                <span id="success-text">✓ 项目结构已生成！</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const translations = {
+            zh: {
+                title: 'Nova Studio 项目生成器',
+                subtitle: '根据规划自动生成项目结构',
+                'phase1-title': 'Phase 1：核心架构升级',
+                'phase2a-title': 'Phase 2A：AI 核心模块',
+                'phase2b-title': 'Phase 2B：工作区系统',
+                'label-monaco': 'Monaco Editor 配置',
+                'label-ui': '简洁 IDE UI',
+                'label-base-html': '基础 HTML 文件',
+                'label-terminal': 'Terminal 区域',
+                'label-ai-provider': 'AI Provider 架构',
+                'label-openai': 'OpenAI 接口',
+                'label-deepseek': 'DeepSeek 接口',
+                'label-settings': 'API 设置中心',
+                'label-filesystem': '文件系统',
+                'label-indexeddb': 'IndexedDB 存储',
+                'label-multi-tab': '多文件 Tab',
+                'label-project-mgmt': '项目管理',
+                'btn-generate': '生成项目结构',
+                'btn-reset': '重置',
+                'success-text': '✓ 项目结构已生成！'
+            },
+            en: {
+                title: 'Nova Studio Project Generator',
+                subtitle: 'Auto-generate project structure based on plans',
+                'phase1-title': 'Phase 1: Core Architecture Upgrade',
+                'phase2a-title': 'Phase 2A: AI Core Module',
+                'phase2b-title': 'Phase 2B: Workspace System',
+                'label-monaco': 'Monaco Editor Configuration',
+                'label-ui': 'Clean IDE UI',
+                'label-base-html': 'Base HTML File',
+                'label-terminal': 'Terminal Area',
+                'label-ai-provider': 'AI Provider Architecture',
+                'label-openai': 'OpenAI Interface',
+                'label-deepseek': 'DeepSeek Interface',
+                'label-settings': 'API Settings Center',
+                'label-filesystem': 'File System',
+                'label-indexeddb': 'IndexedDB Storage',
+                'label-multi-tab': 'Multi-file Tab',
+                'label-project-mgmt': 'Project Management',
+                'btn-generate': 'Generate Project Structure',
+                'btn-reset': 'Reset',
+                'success-text': '✓ Project structure generated!'
+            }
+        };
+
+        let currentLanguage = 'zh';
+
+        function switchLanguage(lang) {
+            currentLanguage = lang;
+            document.documentElement.lang = lang;
+
+            // Update active button
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Update all text
+            Object.keys(translations[lang]).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+        }
+
+        function getSelectedItems() {
+            const items = {};
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                items[checkbox.id] = checkbox.checked;
+            });
+            return items;
+        }
+
+        function generateProject() {
+            const selected = getSelectedItems();
+            let structure = '';
+
+            if (currentLanguage === 'zh') {
+                structure += '📁 Nova Studio v0.2 - 项目结构\n';
+                structure += '════════════════════════════════════\n\n';
+            } else {
+                structure += '📁 Nova Studio v0.2 - Project Structure\n';
+                structure += '════════════════════════════════════\n\n';
+            }
+
+            // Phase 1
+            if (selected.monaco || selected.ui || selected['base-html'] || selected.terminal) {
+                structure += (currentLanguage === 'zh' ? 'Phase 1：核心架构升级\n' : 'Phase 1: Core Architecture Upgrade\n') + '──────────────────────────────\n';
+                structure += 'NovaStudio/\n';
+                structure += '├── v0.2/\n';
+
+                if (selected.monaco) {
+                    structure += '│   ├── editor/\n';
+                    structure += '│   │   ├── monaco-config.js\n';
+                    structure += '│   │   └── editor-theme.css\n';
+                }
+
+                if (selected.ui) {
+                    structure += '│   ├── ui/\n';
+                    structure += '│   │   ├── topbar.html\n';
+                    structure += '│   │   ├── sidebar.html\n';
+                    structure += '│   │   ├── layout.css\n';
+                    structure += '│   │   └── theme-dark.css\n';
+                }
+
+                if (selected['base-html']) {
+                    structure += '│   ├── NovaStudio_v0.2.html\n';
+                }
+
+                if (selected.terminal) {
+                    structure += '│   ├── terminal/\n';
+                    structure += '│   │   ├── terminal.js\n';
+                    structure += '│   │   └── terminal.css\n';
+                }
+
+                structure += '\n';
+            }
+
+            // Phase 2A
+            if (selected['ai-provider'] || selected.openai || selected.deepseek || selected.settings) {
+                structure += (currentLanguage === 'zh' ? 'Phase 2A：AI 核心模块\n' : 'Phase 2A: AI Core Module\n') + '─────────────────────\n';
+                structure += '├── ai/\n';
+
+                if (selected['ai-provider']) {
+                    structure += '│   ├── providers/\n';
+                    structure += '│   │   ├── AIProvider.js\n';
+                    structure += '│   │   └── index.js\n';
+                }
+
+                if (selected.openai) {
+                    structure += '│   ├── openai/\n';
+                    structure += '│   │   ├── OpenAIProvider.js\n';
+                    structure += '│   │   └── models.json\n';
+                }
+
+                if (selected.deepseek) {
+                    structure += '│   ├── deepseek/\n';
+                    structure += '│   │   ├── DeepSeekProvider.js\n';
+                    structure += '│   │   └── models.json\n';
+                }
+
+                if (selected.settings) {
+                    structure += '│   ├── settings/\n';
+                    structure += '│   │   ├── SettingsPanel.js\n';
+                    structure += '│   │   ├── ApiKeyManager.js\n';
+                    structure += '│   │   └── settings.css\n';
+                }
+
+                structure += '\n';
+            }
+
+            // Phase 2B
+            if (selected.filesystem || selected.indexeddb || selected['multi-tab'] || selected['project-mgmt']) {
+                structure += (currentLanguage === 'zh' ? 'Phase 2B：工作区系统\n' : 'Phase 2B: Workspace System\n') + '──────────────────────\n';
+                structure += '├── workspace/\n';
+
+                if (selected.filesystem) {
+                    structure += '│   ├── FileSystem.js\n';
+                    structure += '│   ├── FileTree.js\n';
+                    structure += '│   └── FileExplorer.css\n';
+                }
+
+                if (selected.indexeddb) {
+                    structure += '│   ├── storage/\n';
+                    structure += '│   │   ├── NovaDB.js\n';
+                    structure += '│   │   └── schema.js\n';
+                }
+
+                if (selected['multi-tab']) {
+                    structure += '│   ├── tabs/\n';
+                    structure += '│   │   ├── TabManager.js\n';
+                    structure += '│   │   └── tabs.css\n';
+                }
+
+                if (selected['project-mgmt']) {
+                    structure += '│   ├── projects/\n';
+                    structure += '│   │   ├── ProjectManager.js\n';
+                    structure += '│   │   └── ProjectList.js\n';
+                }
+
+                structure += '\n';
+            }
+
+            // Additional Info
+            structure += '\n' + (currentLanguage === 'zh' ? '📋 生成信息：\n' : '📋 Generation Info:\n');
+            structure += '─────────────────────\n';
+            structure += (currentLanguage === 'zh' ? '时间戳：' : 'Timestamp: ') + new Date().toLocaleString() + '\n';
+            structure += (currentLanguage === 'zh' ? '选中项目数：' : 'Selected Items: ') + Object.values(selected).filter(Boolean).length + '\n';
+            structure += (currentLanguage === 'zh' ? '语言：' : 'Language: ') + (currentLanguage === 'zh' ? '中文' : 'English') + '\n';
+
+            // Display output
+            document.getElementById('output-text').textContent = structure;
+            document.getElementById('output').style.display = 'block';
+
+            // Show success message
+            const successMsg = document.getElementById('successMsg');
+            successMsg.classList.add('show');
+            setTimeout(() => {
+                successMsg.classList.remove('show');
+            }, 3000);
+        }
+
+        function resetForm() {
+            document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = checkbox.id === 'monaco' || checkbox.id === 'ui' || 
+                                 checkbox.id === 'base-html' || checkbox.id === 'terminal' ||
+                                 checkbox.id === 'ai-provider' || checkbox.id === 'filesystem' ||
+                                 checkbox.id === 'indexeddb' || checkbox.id === 'multi-tab';
+            });
+            document.getElementById('output').style.display = 'none';
+            document.getElementById('successMsg').classList.remove('show');
+        }
+    </script>
+</body>
+</html>
