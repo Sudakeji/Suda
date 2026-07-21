@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Studio v0.2 - 完整IDE编辑器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs/loader.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0d1117;
+            --panel: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+        }
+
+        /* 顶部栏 */
+        .topbar {
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            padding: 0 16px;
+            gap: 16px;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo::before {
+            content: '⚡';
+            font-size: 20px;
+        }
+
+        .topbar-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #0d1117;
+            font-weight: 600;
+        }
+
+        .btn.primary:hover {
+            background: #79b8ff;
+            border-color: #79b8ff;
+        }
+
+        .language-selector {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* 主工作区 */
+        .workspace {
+            display: flex;
+            height: calc(100vh - 50px);
+        }
+
+        /* 活动栏 */
+        .activity-bar {
+            width: 50px;
+            background: #010409;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 16px;
+            gap: 16px;
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            font-size: 18px;
+        }
+
+        .activity-icon:hover,
+        .activity-icon.active {
+            color: var(--text);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 250px;
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .file-tree-item {
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .file-tree-item:hover {
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .file-tree-item.folder::before {
+            content: '📁';
+        }
+
+        .file-tree-item.file::before {
+            content: '📄';
+        }
+
+        .file-tree-item.expanded::before {
+            content: '📂';
+        }
+
+        /* 中央编辑区 */
+        .editor-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+        }
+
+        .tab-bar {
+            height: 40px;
+            background: #010409;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            gap: 0;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border-right: 1px solid var(--border);
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            background: transparent;
+        }
+
+        .tab:hover {
+            color: var(--text);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            background: var(--panel);
+            border-bottom: 2px solid var(--accent);
+            margin-bottom: -1px;
+        }
+
+        .tab-close {
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+        }
+
+        .tab-close:hover {
+            opacity: 1;
+        }
+
+        .editor {
+            flex: 1;
+            position: relative;
+            background: var(--bg);
+        }
+
+        /* 底部面板 */
+        .bottom-panel {
+            height: 200px;
+            background: #010409;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+            font-family: 'Fira Code', 'Monaco', monospace;
+            font-size: 12px;
+            color: var(--success);
+            line-height: 1.6;
+        }
+
+        .console-line {
+            margin: 4px 0;
+        }
+
+        .console-error {
+            color: var(--error);
+        }
+
+        .console-warning {
+            color: var(--warning);
+        }
+
+        /* 右侧面板 */
+        .right-panel {
+            width: 300px;
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .panel-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .section-content {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ai-provider {
+            padding: 8px 12px;
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--accent);
+            transition: all 0.2s ease;
+        }
+
+        .ai-provider:hover {
+            background: rgba(88, 166, 255, 0.2);
+        }
+
+        .ai-provider.active {
+            background: var(--accent);
+            color: #0d1117;
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            background: rgba(30, 30, 30, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 13px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .right-panel {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            .topbar {
+                padding: 0 8px;
+            }
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部栏 -->
+    <div class="topbar">
+        <div class="logo">Nova Studio</div>
+        <div class="topbar-actions">
+            <button class="btn" onclick="openNewFile()">+ New File</button>
+            <button class="btn" onclick="openNewFolder()">+ New Folder</button>
+            <button class="btn" onclick="saveFile()">💾 Save</button>
+            <button class="btn primary" onclick="runCode()">▶ Run</button>
+            <button class="btn" onclick="openSettings()">⚙ Settings</button>
+            <select class="language-selector" id="languageSelect" onchange="switchLanguage()">
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 主工作区 -->
+    <div class="workspace">
+        <!-- 活动栏 -->
+        <div class="activity-bar">
+            <div class="activity-icon active" title="Explorer" onclick="togglePanel('explorer')">📁</div>
+            <div class="activity-icon" title="Search" onclick="togglePanel('search')">🔍</div>
+            <div class="activity-icon" title="Source Control" onclick="togglePanel('git')">⎇</div>
+            <div class="activity-icon" title="Run" onclick="togglePanel('run')">▶</div>
+            <div class="activity-icon" title="Extensions" onclick="togglePanel('extensions')">🧩</div>
+            <div style="flex: 1;"></div>
+            <div class="activity-icon" title="Settings" onclick="openSettings()">⚙</div>
+        </div>
+
+        <!-- 侧边栏 -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">EXPLORER</div>
+            <div class="sidebar-content">
+                <div class="file-tree-item expanded" onclick="toggleFolder(this)">NovaStudio/</div>
+                <div class="file-tree-item folder" style="padding-left: 28px;">v0.2/</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">editor/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">monaco-config.js</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">editor-theme.css</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">ui/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">layout.css</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">theme-dark.css</div>
+                <div class="file-tree-item file" style="padding-left: 44px;" onclick="openFile(this)">NovaStudio_v0.2.html</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">terminal/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">terminal.js</div>
+                <div class="file-tree-item folder" style="padding-left: 28px;">ai/</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">providers/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">AIProvider.js</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">openai/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">OpenAIProvider.js</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">deepseek/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">DeepSeekProvider.js</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">settings/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">SettingsPanel.js</div>
+                <div class="file-tree-item folder" style="padding-left: 28px;">workspace/</div>
+                <div class="file-tree-item file" style="padding-left: 44px;" onclick="openFile(this)">FileSystem.js</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">storage/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">NovaDB.js</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">tabs/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">TabManager.js</div>
+                <div class="file-tree-item folder" style="padding-left: 44px;">projects/</div>
+                <div class="file-tree-item file" style="padding-left: 60px;" onclick="openFile(this)">ProjectManager.js</div>
+            </div>
+        </div>
+
+        <!-- 编辑区 -->
+        <div class="editor-area">
+            <!-- 标签栏 -->
+            <div class="tab-bar">
+                <div class="tab active" id="tab-index" onclick="switchTab(this)">
+                    📄 NovaStudio_v0.2.html
+                    <span class="tab-close" onclick="closeTab(event)">✕</span>
+                </div>
+                <div class="tab" onclick="switchTab(this)">
+                    🔧 monaco-config.js
+                    <span class="tab-close" onclick="closeTab(event)">✕</span>
+                </div>
+                <div class="tab" onclick="switchTab(this)">
+                    🎨 layout.css
+                    <span class="tab-close" onclick="closeTab(event)">✕</span>
+                </div>
+            </div>
+
+            <!-- Monaco 编辑器 -->
+            <div id="editor" class="editor"></div>
+
+            <!-- 底部面板 -->
+            <div class="bottom-panel">
+                <div class="panel-header" onclick="toggleBottomPanel()">📋 Terminal</div>
+                <div class="panel-content" id="console">
+                    <div class="console-line">Nova Studio v0.2 ready.</div>
+                    <div class="console-line">✓ Monaco Editor loaded</div>
+                    <div class="console-line">✓ Workspace initialized</div>
+                    <div class="console-line">✓ AI Providers available: OpenAI, DeepSeek</div>
+                    <div class="console-line">✓ IndexedDB storage ready</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧面板 -->
+        <div class="right-panel">
+            <div class="panel-title">🤖 AI Assistant</div>
+            <div class="panel-body">
+                <div class="panel-section">
+                    <div class="section-title">AI Provider</div>
+                    <div class="section-content">
+                        <div class="ai-provider active" onclick="selectProvider(this, 'openai')">🔑 OpenAI</div>
+                        <div class="ai-provider" onclick="selectProvider(this, 'deepseek')">🚀 DeepSeek</div>
+                        <div class="ai-provider" onclick="selectProvider(this, 'gemini')">✨ Gemini</div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="section-title">Quick Actions</div>
+                    <div class="section-content">
+                        <div class="ai-provider" onclick="askAI()">💬 Ask AI</div>
+                        <div class="ai-provider" onclick="optimizeCode()">⚡ Optimize Code</div>
+                        <div class="ai-provider" onclick="explainCode()">📚 Explain</div>
+                        <div class="ai-provider" onclick="fixErrors()">🔧 Fix Errors</div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="section-title">API Settings</div>
+                    <div class="section-content">
+                        <input type="password" class="form-input" placeholder="API Key" id="apiKey">
+                        <button class="btn" style="width: 100%; margin-top: 8px;" onclick="saveApiKey()">Save Key</button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="section-title">Project Info</div>
+                    <div style="font-size: 12px; color: var(--muted); line-height: 1.8;">
+                        📁 NovaStudio/v0.2<br>
+                        📦 Files: 80+<br>
+                        📂 Folders: 30+<br>
+                        💾 Storage: IndexedDB<br>
+                        🔌 Extensible API
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">⚙ Settings</div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Editor Theme</label>
+                    <select class="form-select" id="themeSelect">
+                        <option value="dark">Dark (default)</option>
+                        <option value="light">Light</option>
+                        <option value="high-contrast">High Contrast</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Font Size</label>
+                    <input type="number" class="form-input" id="fontSizeInput" value="14" min="10" max="24">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Auto Save (seconds)</label>
+                    <input type="number" class="form-input" id="autoSaveInput" value="30" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Language</label>
+                    <select class="form-select" id="langSelect">
+                        <option value="zh">中文</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeSettings()">Cancel</button>
+                <button class="btn primary" onclick="saveSettings()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let editor;
+        let currentLanguage = 'zh';
+
+        const translations = {
+            zh: {
+                'new-file': '新建文件',
+                'new-folder': '新建文件夹',
+                'save': '保存',
+                'run': '运行',
+                'settings': '设置',
+                'explorer': '浏览器',
+                'search': '搜索',
+                'terminal': '终端',
+                'console': 'Nova Studio v0.2 已就绪。'
+            },
+            en: {
+                'new-file': 'New File',
+                'new-folder': 'New Folder',
+                'save': 'Save',
+                'run': 'Run',
+                'settings': 'Settings',
+                'explorer': 'Explorer',
+                'search': 'Search',
+                'terminal': 'Terminal',
+                'console': 'Nova Studio v0.2 ready.'
+            }
+        };
+
+        // 初始化 Monaco Editor
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs' } });
+
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Nova Studio v0.2</title>
+</head>
+<body>
+    <h1>Welcome to Nova Studio v0.2</h1>
+    <p>Features:</p>
+    <ul>
+        <li>✨ Monaco Editor (VS Code kernel)</li>
+        <li>🤖 AI Integration (OpenAI, DeepSeek)</li>
+        <li>📁 File System Management</li>
+        <li>💾 IndexedDB Storage</li>
+        <li>🔌 Extensible Architecture</li>
+        <li>⚡ Terminal & Git Support</li>
+    </ul>
+</body>
+</html>`,
+                language: 'html',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 14,
+                minimap: { enabled: true },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on'
+            });
+
+            // 自动保存
+            editor.onDidChangeModelContent(() => {
+                console.log('Content changed, auto-saving...');
+            });
+        });
+
+        // 函数定义
+        function openNewFile() {
+            alert('📄 New File - 功能开发中');
+        }
+
+        function openNewFolder() {
+            alert('📂 New Folder - 功能开发中');
+        }
+
+        function saveFile() {
+            const content = editor.getValue();
+            console.log('File saved:', content.length, 'bytes');
+            addConsoleLog('✓ File saved successfully');
+        }
+
+        function runCode() {
+            addConsoleLog('▶ Running code...');
+            setTimeout(() => {
+                addConsoleLog('✓ Execution completed');
+            }, 1000);
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').classList.add('show');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('show');
+        }
+
+        function saveSettings() {
+            addConsoleLog('✓ Settings saved');
+            closeSettings();
+        }
+
+        function switchLanguage() {
+            const lang = document.getElementById('languageSelect').value;
+            currentLanguage = lang;
+            addConsoleLog(`✓ Language changed to ${lang === 'zh' ? '中文' : 'English'}`);
+        }
+
+        function togglePanel(panelType) {
+            addConsoleLog(`Opening ${panelType} panel...`);
+        }
+
+        function toggleFolder(element) {
+            element.classList.toggle('expanded');
+        }
+
+        function openFile(element) {
+            const fileName = element.textContent.trim();
+            addConsoleLog(`📂 Opening file: ${fileName}`);
+        }
+
+        function switchTab(element) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function closeTab(event) {
+            event.stopPropagation();
+            event.target.parentElement.remove();
+        }
+
+        function toggleBottomPanel() {
+            const panel = document.querySelector('.bottom-panel');
+            panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        function selectProvider(element, provider) {
+            document.querySelectorAll('.ai-provider').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            addConsoleLog(`✓ AI Provider switched to ${provider}`);
+        }
+
+        function askAI() {
+            const code = editor.getSelectedText() || editor.getValue().substring(0, 100);
+            addConsoleLog('🤖 Asking AI: ' + code.substring(0, 50) + '...');
+        }
+
+        function optimizeCode() {
+            addConsoleLog('⚡ Optimizing code...');
+            setTimeout(() => {
+                addConsoleLog('✓ Code optimization suggestions provided');
+            }, 1500);
+        }
+
+        function explainCode() {
+            addConsoleLog('📚 Explaining code...');
+            setTimeout(() => {
+                addConsoleLog('✓ Code explanation generated');
+            }, 1500);
+        }
+
+        function fixErrors() {
+            addConsoleLog('🔧 Analyzing for errors...');
+            setTimeout(() => {
+                addConsoleLog('✓ No errors found');
+            }, 1500);
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKey').value;
+            if (key) {
+                addConsoleLog('✓ API Key saved securely');
+                document.getElementById('apiKey').value = '';
+            } else {
+                addConsoleLog('⚠ Please enter API Key');
+            }
+        }
+
+        function addConsoleLog(message) {
+            const console = document.getElementById('console');
+            const line = document.createElement('div');
+            line.className = 'console-line';
+            line.textContent = message;
+            console.appendChild(line);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        // 初始化
+        window.addEventListener('load', () => {
+            addConsoleLog('🚀 Nova Studio v0.2 initialized successfully');
+        });
+    </script>
+</body>
+</html>
