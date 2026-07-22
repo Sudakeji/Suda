@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nova Studio v0.2 - MVP</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs/loader.min.js"></script>
+  <style>
+    :root{--bg:#0d1117;--panel:#161b22;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff}
+    body{margin:0;height:100vh;background:var(--bg);color:var(--text);font-family:Inter,Segoe UI,Arial}
+    .topbar{height:44px;background:var(--panel);display:flex;align-items:center;padding:0 12px;border-bottom:1px solid #30363d}
+    .workspace{display:flex;height:calc(100vh - 44px)}
+    .sidebar{width:260px;background:var(--panel);border-right:1px solid #30363d;overflow:auto}
+    .editor-area{flex:1;display:flex;flex-direction:column}
+    .tab-bar{height:36px;background:#0b0f14;display:flex;align-items:center;border-bottom:1px solid #30363d}
+    .tab{padding:6px 12px;margin-right:2px;color:var(--muted);cursor:pointer}
+    .tab.active{color:var(--accent);border-bottom:2px solid var(--accent)}
+    #editor{flex:1}
+    .bottom{height:200px;background:#0b0f14;border-top:1px solid #30363d;overflow:auto;padding:8px;font-family:monospace;color:#7ee787}
+    .file-item{padding:6px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.02)}
+    .file-item:hover{background:rgba(88,166,255,0.05)}
+    .controls{display:flex;gap:8px}
+    .btn{background:transparent;border:1px solid #30363d;padding:6px 10px;border-radius:6px;color:var(--text);cursor:pointer}
+    .btn.primary{background:var(--accent);color:#0d1117;border-color:var(--accent)}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div style="flex:1">Nova Studio v0.2 - MVP</div>
+    <div class="controls">
+      <button class="btn" id="newFile">New File</button>
+      <button class="btn" id="saveFile">Save</button>
+      <button class="btn primary" id="preview">Preview</button>
+      <select id="langSelect" class="btn" style="background:var(--panel);">
+        <option value="zh">中文</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div class="sidebar">
+      <div style="padding:10px;font-weight:700;color:var(--muted)">Explorer</div>
+      <div id="fileList"></div>
+    </div>
+    <div class="editor-area">
+      <div class="tab-bar" id="tabBar"></div>
+      <div id="editor"></div>
+      <div class="bottom" id="console"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import Workspace from './src/workspace.js';
+    import * as EditorManager from './src/editor-manager.js';
+    import * as Preview from './src/preview.js';
+
+    // Monaco loader then initialize
+    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs' } });
+    require(['vs/editor/editor.main'], async function() {
+      // init workspace
+      await Workspace.init();
+      // create editor
+      EditorManager.initEditor('editor', { language: 'html', theme: 'vs-dark' });
+
+      // render file list
+      const fileListEl = document.getElementById('fileList');
+      const tabBar = document.getElementById('tabBar');
+      const consoleEl = document.getElementById('console');
+
+      function renderFiles(files) {
+        fileListEl.innerHTML = '';
+        for (const f of files) {
+          const el = document.createElement('div');
+          el.className = 'file-item';
+          el.textContent = f.name;
+          el.onclick = () => openFile(f.id);
+          fileListEl.appendChild(el);
+        }
+      }
+
+      function renderTabs(openFiles) {
+        tabBar.innerHTML = '';
+        for (const name of openFiles) {
+          const t = document.createElement('div');
+          t.className = 'tab' + (name === currentOpen ? ' active' : '');
+          t.textContent = name;
+          t.onclick = () => openFile(name);
+          tabBar.appendChild(t);
+        }
+      }
+
+      let currentOpen = null;
+      let openFiles = [];
+
+      Workspace.onDidChange(list => {
+        renderFiles(list);
+      });
+
+      // initial render
+      renderFiles(Workspace.list());
+
+      function addConsole(msg) {
+        const line = document.createElement('div');
+        line.textContent = msg;
+        consoleEl.appendChild(line);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+
+      async function openFile(id) {
+        const file = Workspace.getFile(id);
+        if (!file) return addConsole('File not found: ' + id);
+        EditorManager.openFileInEditor(file);
+        currentOpen = id;
+        if (!openFiles.includes(id)) openFiles.push(id);
+        renderTabs(openFiles);
+        addConsole('Opened: ' + id);
+      }
+
+      document.getElementById('newFile').onclick = async () => {
+        const name = prompt('New file name', 'untitled.txt');
+        if (!name) return;
+        await Workspace.createFile(name, '');
+        addConsole('Created: ' + name);
+      };
+
+      document.getElementById('saveFile').onclick = async () => {
+        if (!currentOpen) return addConsole('No file open');
+        const data = EditorManager.saveCurrent();
+        await Workspace.saveFile(data.id, data.content);
+        addConsole('Saved: ' + data.id);
+      };
+
+      document.getElementById('preview').onclick = () => {
+        const files = Workspace.list();
+        Preview.openPreviewWindow(files, 'NovaStudio Preview');
+        addConsole('Preview opened');
+      };
+
+      // language switch
+      document.getElementById('langSelect').onchange = (e) => {
+        const lang = e.target.value;
+        if (lang === 'zh') document.documentElement.lang = 'zh-CN';
+        else document.documentElement.lang = 'en-US';
+        addConsole('Language: ' + lang);
+      };
+
+      // open default file
+      const files = Workspace.list();
+      if (files.length) openFile(files[0].id);
+
+      addConsole('MVP initialized');
+    });
+  </script>
+</body>
+</html>
